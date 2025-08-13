@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy import stats
 
 # Configurar o aplicativo Streamlit
 st.title("Aplicativo Interativo de Aprendizado de Estatística")
@@ -11,7 +12,8 @@ page = st.sidebar.radio("Escolha um Tópico", [
     "Tipos de Variáveis", 
     "Tipos de Dados", 
     "Medidas de Tendência Central", 
-    "Medidas de Dispersão"
+    "Medidas de Dispersão",
+    "Medidas de Assimetria e Curtose"
 ])
 
 # Página 1: Tipos de Variáveis
@@ -353,6 +355,172 @@ elif page == "Medidas de Dispersão":
         st.pyplot(fig)
     else:
         st.write("Ambas as listas devem ter o mesmo comprimento para calcular a covariância.")
+
+# Página 5: Medidas de Assimetria e Curtose
+elif page == "Medidas de Assimetria e Curtose":
+    st.header("Medidas de Assimetria e Curtose")
+    st.write("""
+    Essas medidas descrevem a forma da distribuição dos dados, complementando as medidas 
+    de tendência central e dispersão.
+    """)
+    
+    st.subheader("1. Assimetria (Skewness)")
+    st.write("""
+    A assimetria mede o grau de desvio da simetria de uma distribuição:
+    - **Assimetria = 0**: Distribuição simétrica
+    - **Assimetria > 0**: Assimetria positiva (cauda à direita)
+    - **Assimetria < 0**: Assimetria negativa (cauda à esquerda)
+    """)
+    
+    st.subheader("2. Curtose (Kurtosis)")
+    st.write("""
+    A curtose mede o achatamento da distribuição:
+    - **Curtose = 3**: Distribuição normal (mesocúrtica)
+    - **Curtose > 3**: Distribuição mais pontiaguda (leptocúrtica)
+    - **Curtose < 3**: Distribuição mais achatada (platicúrtica)
+    
+    *Nota: Alguns softwares usam curtose excessiva (curtose - 3), onde 0 = normal*
+    """)
+    
+    st.subheader("Exemplo Interativo com Distribuições")
+    
+    # Seletor de tipo de distribuição
+    dist_type = st.selectbox("Escolha o tipo de distribuição:", [
+        "Normal", "Assimétrica Positiva", "Assimétrica Negativa", 
+        "Leptocúrtica", "Platicúrtica", "Dados Personalizados"
+    ])
+    
+    if dist_type == "Dados Personalizados":
+        data_input = st.text_input("Digite uma lista de números (separados por vírgula)", 
+                                  "1,2,2,3,3,3,4,4,5,10,15,20")
+        data = [float(x.strip()) for x in data_input.split(",")]
+    else:
+        n_samples = st.slider("Número de amostras", 100, 10000, 1000)
+        
+        if dist_type == "Normal":
+            data = np.random.normal(50, 10, n_samples)
+        elif dist_type == "Assimétrica Positiva":
+            # Distribuição chi-quadrado (assimetria positiva)
+            data = np.random.chisquare(2, n_samples) * 5 + 30
+        elif dist_type == "Assimétrica Negativa":
+            # Inverso da chi-quadrado (assimetria negativa)
+            data = 70 - np.random.chisquare(2, n_samples) * 5
+        elif dist_type == "Leptocúrtica":
+            # Distribuição t com poucos graus de liberdade (caudas pesadas)
+            data = stats.t.rvs(df=3, size=n_samples) * 10 + 50
+        elif dist_type == "Platicúrtica":
+            # Distribuição uniforme (achatada)
+            data = np.random.uniform(30, 70, n_samples)
+    
+    # Cálculo das medidas
+    assimetria = stats.skew(data)
+    curtose = stats.kurtosis(data, fisher=False)  # Pearson (normal = 3)
+    curtose_excessiva = stats.kurtosis(data, fisher=True)  # Fisher (normal = 0)
+    
+    # Exibir resultados
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Assimetria", f"{assimetria:.3f}")
+        if assimetria > 0.5:
+            st.write("🔴 Assimetria positiva")
+        elif assimetria < -0.5:
+            st.write("🔵 Assimetria negativa")
+        else:
+            st.write("🟢 Aproximadamente simétrica")
+    
+    with col2:
+        st.metric("Curtose (Pearson)", f"{curtose:.3f}")
+        if curtose > 3.5:
+            st.write("📈 Leptocúrtica (pontiaguda)")
+        elif curtose < 2.5:
+            st.write("📉 Platicúrtica (achatada)")
+        else:
+            st.write("📊 Mesocúrtica (normal)")
+    
+    with col3:
+        st.metric("Curtose Excessiva", f"{curtose_excessiva:.3f}")
+        st.write("(Normal = 0)")
+    
+    # Visualização
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    
+    # Histograma
+    ax1.hist(data, bins=30, density=True, alpha=0.7, color='skyblue', edgecolor='black')
+    ax1.axvline(np.mean(data), color='red', linestyle='--', linewidth=2, label=f'Média: {np.mean(data):.2f}')
+    ax1.axvline(np.median(data), color='green', linestyle='--', linewidth=2, label=f'Mediana: {np.median(data):.2f}')
+    ax1.set_xlabel('Valores')
+    ax1.set_ylabel('Densidade')
+    ax1.set_title(f'Histograma - {dist_type}')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Box plot
+    ax2.boxplot(data, vert=True, patch_artist=True, 
+                boxprops=dict(facecolor='lightblue', alpha=0.7))
+    ax2.set_ylabel('Valores')
+    ax2.set_title('Box Plot')
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    st.pyplot(fig)
+    
+    # Interpretação
+    st.subheader("Interpretação")
+    
+    interpretacao = []
+    
+    # Interpretação da assimetria
+    if abs(assimetria) < 0.5:
+        interpretacao.append("✅ **Assimetria**: A distribuição é aproximadamente simétrica.")
+    elif assimetria > 0:
+        interpretacao.append("📊 **Assimetria**: A distribuição tem cauda à direita (valores extremos maiores). A média tende a ser maior que a mediana.")
+    else:
+        interpretacao.append("📊 **Assimetria**: A distribuição tem cauda à esquerda (valores extremos menores). A média tende a ser menor que a mediana.")
+    
+    # Interpretação da curtose
+    if 2.5 <= curtose <= 3.5:
+        interpretacao.append("✅ **Curtose**: A distribuição tem formato similar à normal.")
+    elif curtose > 3.5:
+        interpretacao.append("📈 **Curtose**: A distribuição é mais pontiaguda que a normal, com caudas mais pesadas (maior concentração no centro).")
+    else:
+        interpretacao.append("📉 **Curtose**: A distribuição é mais achatada que a normal, com caudas mais leves (menor concentração no centro).")
+    
+    for item in interpretacao:
+        st.write(item)
+    
+    # Comparação com distribuição normal
+    st.subheader("Comparação com Distribuição Normal")
+    
+    if st.checkbox("Comparar com distribuição normal"):
+        normal_data = np.random.normal(np.mean(data), np.std(data), len(data))
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Histogramas sobrepostos
+        ax.hist(data, bins=30, density=True, alpha=0.6, label=f'{dist_type}', color='skyblue')
+        ax.hist(normal_data, bins=30, density=True, alpha=0.6, label='Normal', color='orange')
+        
+        ax.set_xlabel('Valores')
+        ax.set_ylabel('Densidade')
+        ax.set_title('Comparação com Distribuição Normal')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        st.pyplot(fig)
+        
+        # Comparação das medidas
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Seus dados:**")
+            st.write(f"Assimetria: {stats.skew(data):.3f}")
+            st.write(f"Curtose: {stats.kurtosis(data, fisher=False):.3f}")
+        
+        with col2:
+            st.write("**Distribuição normal:**")
+            st.write(f"Assimetria: {stats.skew(normal_data):.3f}")
+            st.write(f"Curtose: {stats.kurtosis(normal_data, fisher=False):.3f}")
 
 # Rodapé
 st.sidebar.markdown("---")
